@@ -1,0 +1,98 @@
+---
+title: "SatRSR"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(plotly)
+library(readr)
+library(dplyr)
+library(here)
+library(tidyr)
+library(stringr)
+```
+
+```{r load Superdove}
+
+Superdove <- read_csv(here("data","Superdove.csv")) %>%
+  rename(Wavelength = `Wavelength (nm)`)
+
+# Transform to long format
+Superdove <- Superdove %>% 
+  pivot_longer(
+    cols = !contains("Wavelength"),
+    names_to = "BandName",
+    values_to = "RSR"
+  )
+
+# Convert 0 to NA and drop them
+Superdove <- Superdove %>%
+  mutate(RSR = ifelse(RSR <= 0, NA, RSR)) %>%
+  drop_na() %>%
+  group_by(BandName)
+
+# Remove "response" from the band name
+Superdove <- Superdove %>%
+  mutate(
+    BandName = str_extract(BandName, ".*(?= )"),
+    SensorName = "SD")
+
+
+```
+
+```{r load MSI}
+
+MSIS2A <- readxl::read_xlsx(here("data", "S2-SRF_COPE-GSEG-EOPG-TN-15-0007_3.1.xlsx"), sheet = 2) %>%
+  rename(Wavelength = SR_WL)
+
+# Transform to long format
+MSIS2A <- MSIS2A %>% 
+  pivot_longer(
+    cols = !contains("Wavelength"),
+    names_to = "BandName",
+    values_to = "RSR"
+  )
+
+# Convert 0 to NA and drop them
+MSIS2A <- MSIS2A %>%
+  mutate(RSR = ifelse(RSR <= 0, NA, RSR)) %>%
+  drop_na() %>%
+  group_by(BandName) %>%
+  filter(Wavelength <= 907)
+
+# Keep only Band number and set SensorName
+MSIS2A <- MSIS2A %>%
+  mutate(
+    BandName = str_extract(BandName, "(?<=_).{2}$"),
+    SensorName = "MSIS2A")
+
+```
+
+```{r merge data frame}
+
+SatRSR <- bind_rows(Superdove, MSIS2A)
+
+```
+
+
+```{r}
+SDpal <- c("blue", "turquoise", "green", "darkgreen", "yellow", "red", "darkred", "black")
+SDpal <- setNames(SDpal, c("Coastal-Blue", "Blue", "Green_i", "Green_ii", "Yellow", "Red", "Red-edge", "NIR"))
+
+MSIpal <- c("B1"="blue","B2"="turquoise","B3"="darkgreen",
+			"B4"="red","B5"="red","B6"="darkred",
+			"B7"="darkred","B8a"="black","B8"="black")
+
+pal <- append(SDpal, MSIpal)
+
+ply <- plot_ly(SatRSR, x = ~Wavelength, y = ~RSR) %>%
+  add_trace(type = 'scatter', mode = 'line', 
+            color = ~BandName, colors = pal, name = ~paste0(SensorName,"_",BandName))
+  
+
+ply
+```
+
