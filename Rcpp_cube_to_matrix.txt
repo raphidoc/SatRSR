@@ -1,0 +1,28 @@
+Taken from https://community.rstudio.com/t/fastest-way-to-convert-3d-array-to-matrix-or-data-frame/38398
+
+#include <RcppArmadillo.h>
+// [[Rcpp::depends(RcppArmadillo)]]
+using namespace Rcpp;
+// [[Rcpp::export]]
+NumericMatrix  cube_to_matrix(arma::cube my_cube) {
+  int row = 0 ;
+  int N = arma::size(my_cube)[0];
+  int M = arma::size(my_cube)[1];
+  int K = arma::size(my_cube)[2];
+  NumericMatrix A(N*M*K,4);
+
+  for(int k = 0; k < K; k++){
+    for(int m = 0; m < M; m++){
+      for(int n = 0; n < N; n++){
+        A(row,0) = k + 1;
+        A(row,1) = m + 1;
+        A(row,2) = n + 1;
+        A(row,3) = my_cube[n,n,k];
+        row++;
+      }
+    }
+  }
+
+  colnames(A) = CharacterVector::create("K", "M", "N", "val");
+  return A;
+}
